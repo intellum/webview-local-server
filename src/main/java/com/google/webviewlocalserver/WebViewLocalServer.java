@@ -16,7 +16,6 @@ limitations under the License.
 package com.google.webviewlocalserver;
 
 import android.content.Context;
-import android.graphics.Path;
 import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
@@ -71,7 +70,7 @@ public class WebViewLocalServer {
     private final static String httpsScheme = "https";
 
     private final UriMatcher uriMatcher;
-    private final AndroidProtocolHandler protocolHandler;
+    public final AndroidProtocolHandler protocolHandler;
     private final String authority;
 
     /**
@@ -218,6 +217,7 @@ public class WebViewLocalServer {
         synchronized (uriMatcher) {
             handler = (PathHandler) uriMatcher.match(request.getUrl());
         }
+
         if (handler == null) {
             return null;
         }
@@ -268,7 +268,7 @@ public class WebViewLocalServer {
      *            elements.
      * @param handler the handler to use for the uri.
      */
-    void register(Uri uri, PathHandler handler) {
+    public void register(Uri uri, PathHandler handler) {
         synchronized (uriMatcher) {
             uriMatcher.addURI(uri.getScheme(), uri.getAuthority(), uri.getPath(), handler);
         }
@@ -374,6 +374,64 @@ public class WebViewLocalServer {
         }
         return new AssetHostingDetails(httpPrefix, httpsPrefix);
     }
+
+
+    public AssetHostingDetails hostFiles(final String domain,
+                                          final String filePath, final String virtualAssetPath,
+                                          boolean enableHttp, boolean enableHttps) {
+        Uri.Builder uriBuilder = new Uri.Builder();
+        uriBuilder.scheme(httpScheme);
+        uriBuilder.authority(domain);
+        uriBuilder.path(virtualAssetPath);
+
+        if (filePath.indexOf('*') != -1) {
+            throw new IllegalArgumentException("filePath cannot contain the '*' character.");
+        }
+        if (virtualAssetPath.indexOf('*') != -1) {
+            throw new IllegalArgumentException(
+                    "virtualAssetPath cannot contain the '*' character.");
+        }
+
+        Uri httpPrefix = null;
+        Uri httpsPrefix = null;
+
+        PathHandler handler = new PathHandler() {
+            @Override
+            public InputStream handle(Uri url) {
+                InputStream stream;
+                String path = url.getPath().replaceFirst(virtualAssetPath, filePath);
+                try {
+                    stream = protocolHandler.openFile(path);
+                } catch (IOException e) {
+                    Log.e(TAG, "Unable to open file URL: " + url);
+                    return null;
+                }
+
+                String mimeType = null;
+                try {
+                    mimeType = URLConnection.guessContentTypeFromName(path);
+                    if (mimeType == null)
+                        mimeType = URLConnection.guessContentTypeFromStream(stream);
+                } catch (Exception ex) {
+                    Log.e(TAG, "Unable to get mime type" + url);
+                }
+
+                return stream;
+            }
+        };
+
+        if (enableHttp) {
+            httpPrefix = uriBuilder.build();
+            register(Uri.withAppendedPath(httpPrefix, "**"), handler);
+        }
+        if (enableHttps) {
+            uriBuilder.scheme(httpsScheme);
+            httpsPrefix = uriBuilder.build();
+            register(Uri.withAppendedPath(httpsPrefix, "**"), handler);
+        }
+        return new AssetHostingDetails(httpPrefix, httpsPrefix);
+    }
+
 
     /**
      * Hosts the application's resources on an http(s):// URL. Resources
