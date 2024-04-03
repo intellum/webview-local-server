@@ -1,14 +1,18 @@
 apply plugin: 'com.android.library'
-
 android {
-    compileSdkVersion rootProject.ext.COMPILE_SDK_VERSION
-    buildToolsVersion rootProject.ext.BUILD_TOOLS_VERSION
+    namespace "com.google.webviewlocalserver" 
+
+    compileSdkVersion = rootProject.ext.versions.compileSdk
 
     defaultConfig {
-        minSdkVersion rootProject.ext.MIN_SDK_VERSION
-        targetSdkVersion rootProject.ext.TARGET_SDK_VERSION
+        minSdkVersion rootProject.ext.versions.minSdk 
+        targetSdkVersion rootProject.ext.versions.targetSdk
         versionCode rootProject.ext.VERSION_CODE
         versionName rootProject.ext.VERSION_NAME
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     buildTypes {
@@ -17,12 +21,15 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
     sourceSets {
         main {
-            java.srcDirs = [
-                    'src/main/java',
-                    'src/main/third_party/android/java',
-                    'src/main/third_party/chromium/java']
+            java.srcDirs = [ 'src/main/java', 'src/main/third_party/android/java', 'src/main/third_party/chromium/java']
         }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
